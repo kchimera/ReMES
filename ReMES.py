@@ -12,11 +12,11 @@ water_pump_on = machine.Pin(10)
 battery_type_on = machine.Pin(11)
 
 # Define pins for battery capacity measurement
-battery1_pin = machine.ADC(31)
-battery2_pin = machine.ADC(32)
+#battery1_pin = machine.Pin(31)
+#battery2_pin = machine.Pin(32)
 
 # Define pin for water level measurement
-water_level_pin = machine.ADC(34)
+#water_level_pin = machine.Pin(34)
 
 # Define threshold values for water level measurement
 water_level_threshold_low = 500
@@ -56,30 +56,10 @@ def read_water_level(pin):
 # Loop indefinitely
 while True:
     
+    # Check if button pushed
+    main12v_check = main12v_on.value
     
-    """
-    # Read battery capacities
-    battery1_capacity = read_battery(battery1_pin)
-    battery2_capacity = read_battery(battery2_pin)
-    # Read water level
-    water_level = read_water_level(water_level_pin)
-    # Switch on and off outputs based on conditions
-    if battery1_capacity < 20:
-        main12v_pin.value(0)
-        water_pump_pin.value(0)
-        battery_type_pin.value(1)
-    elif battery2_capacity < 20:
-        main12v_pin.value(0)
-        water_pump_pin.value(0)
-        battery_type_pin.value(2)
-    elif water_level == "low":
-        main12v_pin.value(0)
-        water_pump_pin.value(1)
-        battery_type_pin.value(1)
-    else:
-        main12v_pin.value(1)
-        water_pump_pin.value(1)
-        battery_type_pin.value(1)
-    # Wait for a moment before reading again
-    """
-    utime.sleep(1)
+    # If thwe 12 V Button is Pushed, turn on
+    if main12v_check == True:
+        main12v_pin.toggle()
+
