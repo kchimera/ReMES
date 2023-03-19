@@ -2,6 +2,8 @@ import machine
 import micropython
 import time
 import utime
+import network
+from wifi_connect import *
 
 
 print("Setting up machine.Pins...")
@@ -15,8 +17,9 @@ mains_btn = machine.Pin(6, machine.Pin.IN, machine.Pin.PULL_DOWN)
 lesbat_mon = machine.ADC(26) #ADC0 / 31
 vehbat_mon = machine.ADC(27) #ADC1 / 32
 
-# global value
+# settings
 button_pressed_count = 0
+wifi_enabled = True
 
 # Deal with Button Presses
 def button_press(pin):
@@ -31,6 +34,14 @@ def button_press(pin):
 mains_btn.irq(handler=button_press, trigger=machine.Pin.IRQ_FALLING)
 
 button_pressed_count_old = 0
+
+#Configure Wifi
+if wifi_enabled:
+    print("Starting Wifi...")
+    wifi_connect()
+else:
+    print("Wifi Disabled")
+   
 
 # turn on led
 led = machine.Pin("LED", machine.Pin.OUT)
