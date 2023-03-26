@@ -50,6 +50,7 @@ def screen_init():
         LCD.fill_rect(i*30+60,100,30,20,(display_color))
         display_color = display_color << 1
     LCD.show_up()
+``
 
 # Deal with Button Presses
 def button_press(pin):
