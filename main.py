@@ -1,7 +1,5 @@
 import machine
-import micropython
 import time
-import utime
 from LCD3inch5 import *
 
 print("Setting up machine.Pins...")
@@ -29,7 +27,7 @@ battery_state = False
 # settings
 button_pressed_count = 0
 wifi_enabled = False
-led = machine.Pin(25, machine.Pin.OUT)
+led = machine.Pin("LED", machine.Pin.OUT)
 led.off
 LCD = LCD_3inch5()
 ticks = 0
@@ -50,7 +48,6 @@ def screen_init():
         LCD.fill_rect(i*30+60,100,30,20,(display_color))
         display_color = display_color << 1
     LCD.show_up()
-``
 
 # Deal with Button Presses
 def button_press(pin):

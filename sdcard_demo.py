@@ -1,22 +1,24 @@
 import gc
-from machine import Pin, SPI
+import machine
+import sdcard
 
-pdc = Pin(8, Pin.OUT, value=0)
-pcs = Pin(9, Pin.OUT, value=1)
-prst = Pin(15, Pin.OUT, value=1)
-pbl = Pin(13, Pin.OUT, value=1)
+pdc = machine.Pin(8, machine.Pin.OUT, machine.Pin.PULL_DOWN)
+pcs = machine.Pin(9, machine.Pin.OUT,machine.Pin.PULL_UP)
+prst = machine.Pin(15, machine.Pin.OUT,machine.Pin.PULL_UP)
+pbl = machine.Pin(13, machine.Pin.OUT,machine.Pin.PULL_UP)
 
 gc.collect()  # Precaution before instantiating framebuf
 # Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
 # Note non-standard MISO pin. This works, verified by SD card.
-spi = SPI(1, 60_000_000, sck=Pin(10), mosi=Pin(11), miso=Pin(12))
+spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
 
 # Optional use of SD card. Requires official driver. In my testing the
 # 31.25MHz baudrate works. Other SD cards may have different ideas.
 from sdcard import SDCard
 import os
-sd = SDCard(spi, Pin(22, Pin.OUT), 30_000_000)
-os.mount(sd, '/sd')
+sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30_000_000)
+os.mount(sd, "/sd")
+
 with open("/sd/test.txt", "w") as f:
     f.write("Hello world!\r\n")
 
