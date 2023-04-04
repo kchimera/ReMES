@@ -1,20 +1,23 @@
 import machine
 import time
+import struct
+import os
 from LCD3inch5 import *
+#from sdcard import SDCard
 
-print("Setting up machine.Pins...")
 # Define output machine.Pins for Mains 12v, water pump and battery type
 mains_on = machine.Pin(2, machine.Pin.OUT)
 pump_on = machine.Pin(3, machine.Pin.OUT)
 battery_on = machine.Pin(4, machine.Pin.OUT)
 
 # Input Button machine.Pins
-mains_btn = machine.Pin(6, machine.Pin.IN, machine.Pin.PULL_DOWN)
-pump_btn = machine.Pin(7, machine.Pin.IN, machine.Pin.PULL_DOWN)
+#mains_btn = machine.Pin(6, machine.Pin.IN, machine.Pin.PULL_DOWN)
+#pump_btn = machine.Pin(7, machine.Pin.IN, machine.Pin.PULL_DOWN)
 
 # Measurement Leasure and Vechicle Battery Inputs
 lesbat_mon = machine.ADC(26) #ADC0 / 31
 vehbat_mon = machine.ADC(27) #ADC1 / 32
+
 
 # States
 mains_on.off()
@@ -31,12 +34,59 @@ led = machine.Pin("LED", machine.Pin.OUT)
 led.off
 LCD = LCD_3inch5()
 ticks = 0
-lesbat_voltage = "0"
-vehbat_voltage = "0"
+lesbat_voltage = "INIT"
+vehbat_voltage = "INIT"
+
+# sd
+# Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
+# Note non-standard MISO pin. This works, verified by SD card.
+#spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
+
+
+def read_bmp(file_buffer):
+    """
+    Reads a BMP file from a file buffer and returns a dictionary
+    containing the image data.
+
+    Args:
+    - file_buffer: A byte buffer containing the BMP file data.
+
+    Returns:
+    A dictionary containing the image data, with the following keys:
+    - "width": The width of the image in pixels.
+    - "height": The height of the image in pixels.
+    - "data": A list of pixel values, where each pixel value is a tuple of
+      (red, green, blue) values.
+    """
+    bmp_header = file_buffer[:54]
+    header_data = struct.unpack("<hiiiihhiiiiii", bmp_header)
+
+    # Verify that this is a BMP file
+    if header_data[0] != 0x4d42:
+        raise ValueError("Invalid BMP file")
+
+    # Get the image dimensions
+    width = header_data[6]
+    height = header_data[7]
+
+    # Calculate the row size in bytes (padding may be added)
+    row_size = width * 3  # 3 bytes per pixel (RGB)
+    if row_size % 4 != 0:
+        row_size += 4 - (row_size % 4)
+
+    # Extract the pixel data
+    pixel_data = file_buffer[54:]
+    pixels = []
+    for row in range(height):
+        start = row * row_size
+        end = start + row_size
+        row_data = pixel_data[start:end]
+        pixels.extend([(row_data[i+2], row_data[i+1], row_data[i]) for i in range(0, row_size, 3)])
+
+    return {"width": width, "height": height, "data": pixels}
 
 # Setup screen
 def screen_init():
-    print("Configuring Screen")
     LCD.bl_ctrl(20)
     #color BRG
     #LCD.fill(LCD.BLACK)
@@ -49,33 +99,49 @@ def screen_init():
         display_color = display_color << 1
     LCD.show_up()
 
-# Deal with Button Presses
-def button_press(pin):
-    global button_pressed_count, mains_btn
-    print("Button Pushed")
-    if pin is mains_btn:
-        mains_on.toggle()
-        time.sleep(0.1)
-    if pin is pump_btn:
-        pump_on.toggle()
-    button_pressed_count += 1
+# Setup SD Card Access
+#def sdcard_init():    
+ #    sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30_000_000)
+  #   os.mount(sd, "/sd", readonly=True)
 
-# Setup the outputs to be low on startup
-mains_btn.irq(handler=button_press, trigger=machine.Pin.IRQ_FALLING)
-button_pressed_count_old = 0
+
+def print_directory(path, tabs = 0):
+    for file in os.listdir(path):
+        stats = os.stat(path+"/"+file)
+        filesize = stats[6]
+        isdir = stats[0] & 0x4000
+    
+        if filesize < 1000:
+            sizestr = str(filesize) + " by"
+        elif filesize < 1000000:
+            sizestr = "%0.1f KB" % (filesize/1000)
+        else:
+            sizestr = "%0.1f MB" % (filesize/1000000)
+    
+        prettyprintname = ""
+        for i in range(tabs):
+            prettyprintname += "   "
+        prettyprintname += file
+        if isdir:
+            prettyprintname += "/"
+        print('{0:<40} Size: {1:>10}'.format(prettyprintname, sizestr))
+        
+        # recursively print directory contents
+        if isdir:
+            print_directory(path+"/"+file, tabs+1)
 
 # Start Screen
 screen_init()
 
+# Setup SDCard
+#sdcard_init()
+#print_directory("/sd")
+
 # turn on led to indicate starting
 led.on()
 
-print("Entering Main Loop")
 # Loop indefinitely
 while True:
-    if button_pressed_count_old != button_pressed_count:
-       print('Button 1 value:', button_pressed_count)
-       button_pressed_count_old = button_pressed_count
     
     # Every 100 Ticks..
     if(ticks>20):
@@ -97,7 +163,6 @@ while True:
         elif X_Point<0:
             X_Point = 0
         Y_Point = 320-int((get[0]-430)*320/3270)
-        print(str(X_Point)+" /" + str(Y_Point))
         if(Y_Point>220):
             LCD.fill(LCD.WHITE)
             if(X_Point<160):
@@ -105,35 +170,30 @@ while True:
                     # Turn off Mains 12V
                     mains_on.off()
                     mains_state = False
-                    time.sleep(0.3)
                 else:
                     # Turn on Mains 12V
                     mains_on.on()
                     mains_state = True
-                    time.sleep(0.3)
             elif(X_Point<320):
                 if(pump_state==True):
                     # Turn off Water Pump
                     pump_on.off()
                     pump_state = False
-                    time.sleep(0.3)
                 else:
                     # Turn on Water Pump
                     pump_on.on()
                     pump_state = True
-                    time.sleep(0.3)
             elif(X_Point<480):
                 if(battery_state==True):
                     # Turn from Vechicle charge
                     battery_on.off()
                     battery_state = False
-                    time.sleep(0.3)
                 else:
                     # Turn to Vechicle Charge
                     battery_on.on()
                     battery_state = True    
-                    time.sleep(0.3) 
-
+            time.sleep(0.3)
+    
     LCD.fill(LCD.WHITE)
     LCD.text("Leisure Battery: "+lesbat_voltage+"V",30,30,LCD.BLACK)
     LCD.text("Vechicle Battery:"+vehbat_voltage+"V",250,30,LCD.BLACK)
