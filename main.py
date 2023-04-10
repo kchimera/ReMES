@@ -1,9 +1,12 @@
 import machine
-import time
+import utime
 import struct
 import os
 from LCD3inch5 import *
-#from sdcard import SDCard
+from sdcard import SDCard
+
+# Wait 5 Seconds for GPIO
+utime.sleep(2)
 
 # Define output machine.Pins for Mains 12v, water pump and battery type
 mains_on = machine.Pin(2, machine.Pin.OUT)
@@ -42,48 +45,6 @@ vehbat_voltage = "INIT"
 # Note non-standard MISO pin. This works, verified by SD card.
 #spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
 
-
-def read_bmp(file_buffer):
-    """
-    Reads a BMP file from a file buffer and returns a dictionary
-    containing the image data.
-
-    Args:
-    - file_buffer: A byte buffer containing the BMP file data.
-
-    Returns:
-    A dictionary containing the image data, with the following keys:
-    - "width": The width of the image in pixels.
-    - "height": The height of the image in pixels.
-    - "data": A list of pixel values, where each pixel value is a tuple of
-      (red, green, blue) values.
-    """
-    bmp_header = file_buffer[:54]
-    header_data = struct.unpack("<hiiiihhiiiiii", bmp_header)
-
-    # Verify that this is a BMP file
-    if header_data[0] != 0x4d42:
-        raise ValueError("Invalid BMP file")
-
-    # Get the image dimensions
-    width = header_data[6]
-    height = header_data[7]
-
-    # Calculate the row size in bytes (padding may be added)
-    row_size = width * 3  # 3 bytes per pixel (RGB)
-    if row_size % 4 != 0:
-        row_size += 4 - (row_size % 4)
-
-    # Extract the pixel data
-    pixel_data = file_buffer[54:]
-    pixels = []
-    for row in range(height):
-        start = row * row_size
-        end = start + row_size
-        row_data = pixel_data[start:end]
-        pixels.extend([(row_data[i+2], row_data[i+1], row_data[i]) for i in range(0, row_size, 3)])
-
-    return {"width": width, "height": height, "data": pixels}
 
 # Setup screen
 def screen_init():
@@ -147,8 +108,14 @@ while True:
     if(ticks>20):
         ticks=0
         # Read battery Level and Print
-        lesbat_value = str(lesbat_mon.read_u16() / (65535 / 16.5))
-        vehbat_value = str(vehbat_mon.read_u16() / (65535 / 16.5))
+        if((lesbat_mon.read_u16() / (65535 / 16.5)) < 8):
+            lesbat_value = "0"
+        else:
+            lesbat_value = str(lesbat_mon.read_u16() / (65535 / 16.5))
+        if ((vehbat_mon.read_u16() / (65535 / 16.5)) < 8):
+            vehbat_value = "0" 
+        else:       
+            vehbat_value = str(vehbat_mon.read_u16() / (65535 / 16.5))
         # Clean up Voltage Levels
         lesbat_voltage = lesbat_value[:-4]
         vehbat_voltage = vehbat_value[:-4]
@@ -192,7 +159,7 @@ while True:
                     # Turn to Vechicle Charge
                     battery_on.on()
                     battery_state = True    
-            time.sleep(0.3)
+            utime.sleep(0.3)
     
     LCD.fill(LCD.WHITE)
     LCD.text("Leisure Battery: "+lesbat_voltage+"V",30,30,LCD.BLACK)
