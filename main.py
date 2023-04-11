@@ -1,12 +1,11 @@
 import machine
 import utime
-import struct
 import os
 from LCD3inch5 import *
 from sdcard import SDCard
 
 # Wait 5 Seconds for GPIO
-utime.sleep(2)
+utime.sleep(5)
 
 # Define output machine.Pins for Mains 12v, water pump and battery type
 mains_on = machine.Pin(2, machine.Pin.OUT)
@@ -30,6 +29,8 @@ mains_state = False
 pump_state = False
 battery_state = False
 
+logobuf = []
+
 # settings
 button_pressed_count = 0
 wifi_enabled = False
@@ -40,11 +41,13 @@ ticks = 0
 lesbat_voltage = "INIT"
 vehbat_voltage = "INIT"
 
-# sd
+
+# sd card
 # Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
 # Note non-standard MISO pin. This works, verified by SD card.
-#spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
-
+spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
+sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30_000_000)
+os.mount(sd, "/sd", readonly=True)
 
 # Setup screen
 def screen_init():
@@ -59,13 +62,8 @@ def screen_init():
         LCD.fill_rect(i*30+60,100,30,20,(display_color))
         display_color = display_color << 1
     LCD.show_up()
-
-# Setup SD Card Access
-#def sdcard_init():    
- #    sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30_000_000)
-  #   os.mount(sd, "/sd", readonly=True)
-
-
+   
+     
 def print_directory(path, tabs = 0):
     for file in os.listdir(path):
         stats = os.stat(path+"/"+file)
@@ -91,12 +89,35 @@ def print_directory(path, tabs = 0):
         if isdir:
             print_directory(path+"/"+file, tabs+1)
 
+def render_bg():
+    with open('/sd/icon_water.bmp', 'rb') as file:
+        # Read the BMP header to determine the size of the image
+        header = file.read(54)
+        width = header[18] + (header[19] << 8)
+        height = header[22] + (header[23] << 8)
+
+        # Allocate a buffer to hold one row of pixels
+        row_buffer = bytearray((width * 3 + 3) & ~3)
+
+        # Read the image data in chunks
+        for y in range(height):
+            # Read one row of pixel data
+            file.readinto(row_buffer)
+
+            # Extract the pixel values from the row buffer
+            for x in range(width):
+                b, g, r = row_buffer[x * 3:x * 3 + 3]
+
+                # Process the pixel values here
+                #LCD.draw_point(x,y,b)
+                #LCD.pixel(x,y, b)        
+            
 # Start Screen
 screen_init()
 
 # Setup SDCard
-#sdcard_init()
-#print_directory("/sd")
+print_directory("/sd")
+#render_bg()
 
 # turn on led to indicate starting
 led.on()
@@ -190,7 +211,7 @@ while True:
         LCD.fill_rect(320,60,160,100,LCD.BLACK)
         LCD.text("Battery Select",340,110,LCD.WHITE)
         LCD.rect(320,60,160,100,LCD.WHITE)
-
+            
     LCD.show_down() 
     ticks += 1
 
