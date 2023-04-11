@@ -12,7 +12,6 @@ TP_CS    = 16
 TP_IRQ   = 17
 
 class LCD_3inch5(framebuf.FrameBuffer):
-
     def __init__(self):
         self.RED   =   0x07E0
         self.GREEN =   0x001f
