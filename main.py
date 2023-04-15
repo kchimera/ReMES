@@ -50,8 +50,8 @@ sleep_ticks = 0
 # Setup SDCard and SPI
 # Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
 # Note non-standard MISO pin. This works, verified by SD card.
-spi = machine.SPI(1, 30000000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
-sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30000000)
+spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
+sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30_000_000)
 os.mount(sd, "/sd", readonly=True)
 
 # Setup screen
@@ -97,7 +97,6 @@ def render_bg():
 
         # Allocate a buffer to hold one row of pixels
         row_buffer = bytearray((width * 2 + 3) & ~3)
-        #row_buffer = bytearray(width * 2 + 8)
         
         # Read the image data in chunks
         for y in range(height - 1, -1, -1):
@@ -116,17 +115,13 @@ def render_bg():
                 # Recompress them into 16bit Int
                 pixel_value = (b1 << 8) | b2
                 # Write to Framebuffer
-                LCD.pixel(x,y,pixel_value)
+                LCD.pixel(x,y,pixel_value)   
                 
-                
-
 # Start Screen
 screen_init()
 
 # Setup SDCard
-print_directory("/sd")
-render_bg()
-print("BG Presented")
+#render_bg()
 LCD.show_up() 
 
 # turn on led to indicate starting
@@ -171,9 +166,6 @@ while True:
             vehbat_pc = int(vehbat_value - 12.0) * 100
         else:
             vehbat_pc = 0
-            
-        lesbat_pc = 80
-        vehbat_pc = 45
             
         print("Vechicle Value" + str(vehbat_value)+ " / " + "Leisure Value" + str(lesbat_value) )
         print("Vechicle Value %" + str(vehbat_pc)+ " / " + "Leisure Value %" + str(lesbat_pc))
