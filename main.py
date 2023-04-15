@@ -90,14 +90,14 @@ def print_directory(path, tabs = 0):
 def render_bg():
     with open('/sd/top_image.bmp', 'rb') as file:
         # Read the BMP header to determine the size of the image
-        header = file.read(54)
+        header = file.read(70)
         width = header[18] + (header[19] << 8)
         height = header[22] + (header[23] << 8)
         print("Reading Background Image: " + str(width) + " / " + str(height))
 
         # Allocate a buffer to hold one row of pixels
-        #row_buffer = bytearray((width * 2 + 3) & ~3)
-        row_buffer = bytearray(width * 2)
+        row_buffer = bytearray((width * 2 + 3) & ~3)
+        #row_buffer = bytearray(width * 2 + 8)
         
         # Read the image data in chunks
         for y in range(height - 1, -1, -1):
@@ -116,7 +116,7 @@ def render_bg():
                 # Recompress them into 16bit Int
                 pixel_value = (b1 << 8) | b2
                 # Write to Framebuffer
-                LCD.pixel(x-8,y,pixel_value)
+                LCD.pixel(x,y,pixel_value)
                 
                 
 
@@ -172,8 +172,8 @@ while True:
         else:
             vehbat_pc = 0
             
-        lesbat_pc = 50
-        vehbat_pc = 50
+        lesbat_pc = 80
+        vehbat_pc = 45
             
         print("Vechicle Value" + str(vehbat_value)+ " / " + "Leisure Value" + str(lesbat_value) )
         print("Vechicle Value %" + str(vehbat_pc)+ " / " + "Leisure Value %" + str(lesbat_pc))
@@ -246,19 +246,19 @@ while True:
     LCD.fill(LCD.BLACK)
     
     #Draw Battery Levels
-    if (lesbat_pc<=100):
-        LCD.fill_rect(0,0,(int(float(280/100)*lesbat_pc))-30,30,LCD.GREEN)
-    elif(lesbat_pc<=50): 
-        LCD.fill_rect(0,0,(int(float(280/100)*lesbat_pc))-30,30,LCD.BLUE)
-    elif(lesbat_pc<=25):
-        LCD.fill_rect(0,0,(int(float(280/100)*lesbat_pc))-30,30,LCD.RED)
+    if (lesbat_pc<=25):
+        LCD.fill_rect(0,0,(int(float(280/100)*lesbat_pc))-40,30,LCD.RED)
+    elif(lesbat_pc<=50):
+        LCD.fill_rect(0,0,(int(float(280/100)*lesbat_pc))-40,30,LCD.BLUE)
+    elif(lesbat_pc<=100):
+        LCD.fill_rect(0,0,(int(float(280/100)*lesbat_pc))-40,30,LCD.GREEN)
     
-    if (vehbat_pc<=100):
-        LCD.fill_rect((480-int(float(280/100)*vehbat_pc))+30,0,480,30,LCD.GREEN)
+    if (vehbat_pc<=25):
+        LCD.fill_rect((480-int(float(280/100)*vehbat_pc))+40,0,480,30,LCD.RED)
     elif(vehbat_pc<=50): 
-        LCD.fill_rect((480-int(float(280/100)*vehbat_pc))+30,0,480,30,LCD.BLUE)
-    elif(vehbat_pc<=25):
-        LCD.fill_rect((480-int(float(280/100)*vehbat_pc))+30,0,480,30,LCD.RED)
+        LCD.fill_rect((480-int(float(280/100)*vehbat_pc))+40,0,480,30,LCD.BLUE)
+    elif(vehbat_pc<=100):
+        LCD.fill_rect((480-int(float(280/100)*vehbat_pc))+40,0,480,30,LCD.GREEN)
     
     
     # Write Battery Levels
@@ -267,7 +267,7 @@ while True:
 
     # Draw Water Level Bar
     LCD.fill_rect(0,35,480,20,LCD.GREEN)
-    LCD.text("Water Level at %",200,38,LCD.BLACK)
+    LCD.text("Water Level at %",200,40,LCD.BLACK)
     
     # Check and Show States
     if(mains_state):
