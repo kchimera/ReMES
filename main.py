@@ -1,11 +1,16 @@
 from machine import Pin,ADC
 import utime
+import gc
 from os import mount
+from micropython import mem_info
 from LCD3inch5 import *
-from sdcard import SDCard
+import sdcard
 
-# Wait 5 Seconds for GPIO
-#utime.sleep(2)
+# Enable Memory GC
+gc.enable()
+
+#utime.sleep(5)
+
 
 # Define output Pins for Mains 12v, water pump and battery type
 mains_on = Pin(2, Pin.OUT)
@@ -16,7 +21,7 @@ battery_on = Pin(4, Pin.OUT)
 lesbat_mon = ADC(26) #ADC0 / 31
 vehbat_mon = ADC(27) #ADC1 / 32
 
-
+#print("Setting up States")
 # States
 mains_on.on()
 pump_on.off()
@@ -26,6 +31,8 @@ pump_state = False
 battery_state = False
 sleepy = False
 sleep = False
+# Colours
+darkGreen = (0 << 11) | (38 << 5) | (0)
 
 # settings
 button_pressed_count = 0
@@ -42,15 +49,17 @@ vehbat_value = 0
 lesbat_pc = 0
 vehbat_pc = 0
 sleep_ticks = 0
+# The 0% / 100% Volts of the Batteries (Normally 12.7v for a Leisure)
+batteryminvolts = 12.0
+batterymaxvolts = 12.7
 
- 
 
 # Setup SDCard and SPI
 # Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
 # Note non-standard MISO pin. This works, verified by SD card.
-spi = SPI(1, 60_000_000, sck=Pin(10), mosi=Pin(11), miso=Pin(12))
-sd = SDCard(spi, Pin(22, Pin.OUT), 30_000_000)
-mount(sd, "/sd", readonly=True)
+spi = SPI(1, 30_000_000, sck=Pin(10), mosi=Pin(11), miso=Pin(12))
+sd = sdcard.SDCard(spi, Pin(22, Pin.OUT), 30_000_000)
+mount(sd, "/sd", readonly=False)
 
 # Setup screen
 def screen_init():
@@ -65,7 +74,7 @@ def render_bg():
         header = file.read(70)
         width = header[18] + (header[19] << 8)
         height = header[22] + (header[23] << 8)
-        print("Reading Background Image: " + str(width) + " / " + str(height))
+        #print("Reading Background Image: " + str(width) + " / " + str(height))
 
         # Allocate a buffer to hold one row of pixels
         row_buffer = bytearray((width * 2 + 3) & ~3)
@@ -74,7 +83,6 @@ def render_bg():
         for y in range(height - 1, -1, -1):
             # Read one row of pixel data
             file.readinto(row_buffer)
-
             # Extract the pixel values from the row buffer
             for x in range(width):
                 # Get the two bytes representing the pixel
@@ -88,12 +96,15 @@ def render_bg():
                 pixel_value = (b1 << 8) | b2
                 # Write to Framebuffer
                 LCD.pixel(x,y,pixel_value)
+        del row_buffer
+        gc.collect()
                 
 # Start Screen
 screen_init()
 
 # Setup SDCard
-#render_bg()
+gc.collect()
+render_bg()
 LCD.show_up() 
 
 # turn on led to indicate starting
@@ -108,11 +119,14 @@ while True:
         # Read Battery Level and Update if higher
         lesbat_value_last = lesbat_mon.read_u16() / (65535 / 16.5)
         vehbat_value_last = vehbat_mon.read_u16() / (65535 / 16.5)
-        
-        if((lesbat_value_last > lesbat_value) and (lesbat_value_last < 14)):
+        if(lesbat_value_last < lesbat_value):
             lesbat_value = lesbat_value_last
-            
-        if((vehbat_value_last > vehbat_value) and (vehbat_value_last < 14)):
+        elif((lesbat_value_last > lesbat_value) and (lesbat_value_last < 14)):
+            lesbat_value = lesbat_value_last
+        
+        if(vehbat_value_last < vehbat_value):
+            vehbat_value = vehbat_value_last  
+        elif((vehbat_value_last > vehbat_value) and (vehbat_value_last < 14)):
             vehbat_value = vehbat_value_last
         
         # Led Flash
@@ -121,6 +135,8 @@ while True:
     if(longticks>200):
         # A long tick time has passed, possibly 30 secs?
         longticks=0
+        # Read Voltages
+        
         # Update Voltage Levels
         lesbat_string = str(lesbat_value)   
         vehbat_string = str(vehbat_value)
@@ -130,18 +146,19 @@ while True:
         
         # Set Percentages
         if((lesbat_value < 14.0) and (lesbat_value > 12.0)):
-            lesbat_pc = int(lesbat_value - 12.0) / 100
+            lesbat_pc = ((lesbat_value - batteryminvolts) / (batterymaxvolts - batteryminvolts)) * 100
         else:
             lesbat_pc = 0
             
         if((vehbat_value < 14.0) and (vehbat_value > 12.0)):
-            vehbat_pc = int(vehbat_value - 12.0) * 100
+            vehbat_pc =  ((vehbat_value - batteryminvolts) / (batterymaxvolts - batteryminvolts)) * 100
         else:
             vehbat_pc = 0
             
         print("Vechicle Value" + str(vehbat_value)+ " / " + "Leisure Value" + str(lesbat_value) )
         print("Vechicle Value %" + str(vehbat_pc)+ " / " + "Leisure Value %" + str(lesbat_pc))
         print("Sleep Ticks: " + str(sleep_ticks))
+        print("Memory Info"+str(mem_info()))
         
     if(sleep_ticks==500):
         sleepy = True
@@ -165,12 +182,12 @@ while True:
     get = LCD.touch_get()
     if get != None:
         # Wake up Screen
-        if((sleep == True) or (sleepy == True)):
+        #if((sleep == True) or (sleepy == True)):
             print("Waking Up!")
             sleep = False
             sleepy = False
             sleep_ticks = 0
-        else:
+        #else:
             X_Point = int((get[1]-430)*480/3270)
             if(X_Point>480):
                 X_Point = 480
@@ -231,7 +248,7 @@ while True:
 
     # Draw Water Level Bar
     LCD.fill_rect(0,35,480,20,LCD.GREEN)
-    LCD.text("Water Level at %",200,40,LCD.BLACK)
+    LCD.text("Water Level at %",200,40,darkGreen)
     
     # Check and Show States
     if(mains_state):
