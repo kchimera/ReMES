@@ -1,20 +1,20 @@
-import machine
+from machine import Pin,ADC
 import utime
-import os
+from os import mount
 from LCD3inch5 import *
 from sdcard import SDCard
 
 # Wait 5 Seconds for GPIO
-#utime.sleep(5)
+#utime.sleep(2)
 
-# Define output machine.Pins for Mains 12v, water pump and battery type
-mains_on = machine.Pin(2, machine.Pin.OUT)
-pump_on = machine.Pin(3, machine.Pin.OUT)
-battery_on = machine.Pin(4, machine.Pin.OUT)
+# Define output Pins for Mains 12v, water pump and battery type
+mains_on = Pin(2, Pin.OUT)
+pump_on = Pin(3, Pin.OUT)
+battery_on = Pin(4, Pin.OUT)
 
 # Measurement Leasure and Vechicle Battery Inputs
-lesbat_mon = machine.ADC(26) #ADC0 / 31
-vehbat_mon = machine.ADC(27) #ADC1 / 32
+lesbat_mon = ADC(26) #ADC0 / 31
+vehbat_mon = ADC(27) #ADC1 / 32
 
 
 # States
@@ -27,12 +27,10 @@ battery_state = False
 sleepy = False
 sleep = False
 
-logobuf = []
-
 # settings
 button_pressed_count = 0
 wifi_enabled = False
-led = machine.Pin("LED", machine.Pin.OUT)
+led = Pin("LED", Pin.OUT)
 led.off
 LCD = LCD_3inch5()
 ticks = 0
@@ -50,9 +48,9 @@ sleep_ticks = 0
 # Setup SDCard and SPI
 # Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
 # Note non-standard MISO pin. This works, verified by SD card.
-spi = machine.SPI(1, 60_000_000, sck=machine.Pin(10), mosi=machine.Pin(11), miso=machine.Pin(12))
-sd = SDCard(spi, machine.Pin(22, machine.Pin.OUT), 30_000_000)
-os.mount(sd, "/sd", readonly=True)
+spi = SPI(1, 60_000_000, sck=Pin(10), mosi=Pin(11), miso=Pin(12))
+sd = SDCard(spi, Pin(22, Pin.OUT), 30_000_000)
+mount(sd, "/sd", readonly=True)
 
 # Setup screen
 def screen_init():
@@ -60,32 +58,6 @@ def screen_init():
     LCD.text("Loading", 200, 20, LCD.WHITE)
     LCD.show_up()
     LCD.show_down()
-   
-     
-def print_directory(path, tabs = 0):
-    for file in os.listdir(path):
-        stats = os.stat(path+"/"+file)
-        filesize = stats[6]
-        isdir = stats[0] & 0x4000
-    
-        if filesize < 1000:
-            sizestr = str(filesize) + " by"
-        elif filesize < 1000000:
-            sizestr = "%0.1f KB" % (filesize/1000)
-        else:
-            sizestr = "%0.1f MB" % (filesize/1000000)
-    
-        prettyprintname = ""
-        for i in range(tabs):
-            prettyprintname += "   "
-        prettyprintname += file
-        if isdir:
-            prettyprintname += "/"
-        print('{0:<40} Size: {1:>10}'.format(prettyprintname, sizestr))
-        
-        # recursively print directory contents
-        if isdir:
-            print_directory(path+"/"+file, tabs+1)
 
 def render_bg():
     with open('/sd/top_image.bmp', 'rb') as file:
@@ -115,7 +87,7 @@ def render_bg():
                 # Recompress them into 16bit Int
                 pixel_value = (b1 << 8) | b2
                 # Write to Framebuffer
-                LCD.pixel(x,y,pixel_value)   
+                LCD.pixel(x,y,pixel_value)
                 
 # Start Screen
 screen_init()
@@ -287,7 +259,6 @@ while True:
         LCD.text("Battery Select",340,110,LCD.WHITE)
         LCD.rect(320,60,160,100,LCD.WHITE)
         
-    
             
     LCD.show_down()
     ticks += 1
