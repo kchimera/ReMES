@@ -6,11 +6,10 @@ from micropython import mem_info
 from LCD3inch5 import *
 import sdcard
 
-# Enable Memory GC
+#Enable Memory GC
 gc.enable()
 
-#utime.sleep(5)
-
+utime.sleep(5)
 
 # Define output Pins for Mains 12v, water pump and battery type
 mains_on = Pin(2, Pin.OUT)
@@ -21,7 +20,6 @@ battery_on = Pin(4, Pin.OUT)
 lesbat_mon = ADC(26) #ADC0 / 31
 vehbat_mon = ADC(27) #ADC1 / 32
 
-#print("Setting up States")
 # States
 mains_on.on()
 pump_on.off()
@@ -56,7 +54,6 @@ batterymaxvolts = 12.7
 
 # Setup SDCard and SPI
 # Max baudrate produced by Pico is 31_250_000. ST7789 datasheet allows <= 62.5MHz.
-# Note non-standard MISO pin. This works, verified by SD card.
 spi = SPI(1, 30_000_000, sck=Pin(10), mosi=Pin(11), miso=Pin(12))
 sd = sdcard.SDCard(spi, Pin(22, Pin.OUT), 30_000_000)
 mount(sd, "/sd", readonly=False)
@@ -74,8 +71,7 @@ def render_bg():
         header = file.read(70)
         width = header[18] + (header[19] << 8)
         height = header[22] + (header[23] << 8)
-        #print("Reading Background Image: " + str(width) + " / " + str(height))
-
+        
         # Allocate a buffer to hold one row of pixels
         row_buffer = bytearray((width * 2 + 3) & ~3)
         
@@ -98,45 +94,49 @@ def render_bg():
                 LCD.pixel(x,y,pixel_value)
         del row_buffer
         gc.collect()
-                
+
+               
 # Start Screen
 screen_init()
 
-# Setup SDCard
+# Setup GFX
 gc.collect()
 render_bg()
-LCD.show_up() 
+LCD.show_up()
 
 # turn on led to indicate starting
 led.on()
 
 # Loop indefinitely
 while True:
-    
-    # Every 100 Ticks..
     if(ticks>20):
         ticks=0
         # Read Battery Level and Update if higher
         lesbat_value_last = lesbat_mon.read_u16() / (65535 / 16.5)
+        #print("LesBat" + str(lesbat_value) + " / Last:" + str(lesbat_value))
         vehbat_value_last = vehbat_mon.read_u16() / (65535 / 16.5)
+        #print("VehBat Mon:" + str(vehbat_mon.read_u16()))
         if(lesbat_value_last < lesbat_value):
             lesbat_value = lesbat_value_last
+           #print("Setting Leisure Bat to: " + str(lesbat_value))
         elif((lesbat_value_last > lesbat_value) and (lesbat_value_last < 14)):
             lesbat_value = lesbat_value_last
+            #print("Setting Leisure Bat to: " + str(lesbat_value))
+            
         
         if(vehbat_value_last < vehbat_value):
             vehbat_value = vehbat_value_last  
+            #print("Setting Vehicle Bat to: " + str(vehbat_value))
         elif((vehbat_value_last > vehbat_value) and (vehbat_value_last < 14)):
             vehbat_value = vehbat_value_last
+            #print("Setting Vehicle Bat to: " + str(vehbat_value))
         
         # Led Flash
         led.toggle()
     
     if(longticks>200):
         # A long tick time has passed, possibly 30 secs?
-        longticks=0
-        # Read Voltages
-        
+        longticks=0   
         # Update Voltage Levels
         lesbat_string = str(lesbat_value)   
         vehbat_string = str(vehbat_value)
@@ -159,7 +159,8 @@ while True:
         print("Vechicle Value %" + str(vehbat_pc)+ " / " + "Leisure Value %" + str(lesbat_pc))
         print("Sleep Ticks: " + str(sleep_ticks))
         print("Memory Info"+str(mem_info()))
-        
+    
+    # Work with Sleep Ticks, currently set to 500 for full sleepy and 2000 for sleep, this is reset with screen touch
     if(sleep_ticks==500):
         sleepy = True
         print("Feeling Sleepy...")
@@ -181,13 +182,15 @@ while True:
         
     get = LCD.touch_get()
     if get != None:
-        # Wake up Screen
-        #if((sleep == True) or (sleepy == True)):
+        # Wake up Screen if touched and sleepy / sleep, then exit if to regain control
+        if((sleep == True) or (sleepy == True)):
             print("Waking Up!")
             sleep = False
             sleepy = False
             sleep_ticks = 0
-        #else:
+            time.sleep(0.3)
+        else:
+            sleep_ticks = 0
             X_Point = int((get[1]-430)*480/3270)
             if(X_Point>480):
                 X_Point = 480
@@ -224,6 +227,7 @@ while True:
                         battery_state = True    
                 utime.sleep(0.3)
     
+    # Fill Bottom Section in Back BG
     LCD.fill(LCD.BLACK)
     
     #Draw Battery Levels
@@ -276,7 +280,7 @@ while True:
         LCD.text("Battery Select",340,110,LCD.WHITE)
         LCD.rect(320,60,160,100,LCD.WHITE)
         
-            
+    # Render lower section that contains controls & Graphs etc...        
     LCD.show_down()
     ticks += 1
     longticks += 1
