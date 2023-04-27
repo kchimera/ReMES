@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "C:/Users/disko/Dropbox/Projects/Camper MCU/MCU Project/Github/ReMES/BMI160"
 		}
 	],
 	"settings": {
