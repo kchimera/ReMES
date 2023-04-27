@@ -1,6 +1,7 @@
 from machine import Pin,ADC
 import utime
 import gc
+from BMI160 import BMI160_I2C
 from os import mount
 from micropython import mem_info
 from LCD3inch5 import *
@@ -94,6 +95,9 @@ def render_bg():
                 LCD.pixel(x,y,pixel_value)
         del row_buffer
         gc.collect()
+
+def init_6dof():
+    
 
                
 # Start Screen
